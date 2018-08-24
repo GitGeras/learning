@@ -1,10 +1,13 @@
 package com.db.my_spring;
 
+import com.db.my_spring.annotation.Benchmark;
 import com.db.my_spring.configurator.ObjectConfigurator;
 import lombok.SneakyThrows;
+import org.reflections.ReflectionUtils;
 import org.reflections.Reflections;
 
-import java.lang.reflect.Modifier;
+import javax.annotation.PostConstruct;
+import java.lang.reflect.*;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -39,10 +42,36 @@ public class ObjectFactory {
     @SneakyThrows
     @SuppressWarnings("unchecked")
     public <T>  T createObject(Class<T> type) {
-        T newInstance = createImpl(type);
-        processAnnotation(newInstance);
+        T t = createImpl(type);
+        configure(t);
 
-        return newInstance;
+        invokeInitMethod(type, t);
+
+        if (type.isAnnotationPresent(Benchmark.class)) {
+            return (T) Proxy.newProxyInstance(type.getClassLoader(), type.getInterfaces(), new InvocationHandler() {
+                @Override
+                public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+                    System.out.println("*** benchmarke for method " + method.getName() + " was started");
+                    long start = System.nanoTime();
+                    Object retVal = method.invoke(t, args);
+                    long end = System.nanoTime();
+                    System.out.println("*** benchmarke for method " + method.getName() + " was ended");
+                    return retVal;
+                }
+            });
+        }
+
+        return t;
+    }
+
+    private <T> void invokeInitMethod(Class<T> type, T newInstance) throws IllegalAccessException, InvocationTargetException {
+        Set<Method> methods = ReflectionUtils.getAllMethods(type);
+        for (Method method : methods) {
+            if (method.isAnnotationPresent(PostConstruct.class)) {
+                method.setAccessible(true);
+                method.invoke(newInstance);
+            }
+        }
     }
 
     private <T> T createImpl(Class<T> type) throws InstantiationException, IllegalAccessException {
@@ -65,7 +94,7 @@ public class ObjectFactory {
         return newInstance;
     }
 
-    public <T> void processAnnotation(T obj) throws IllegalAccessException {
+    public <T> void configure(T obj) throws IllegalAccessException, InvocationTargetException {
         for (ObjectConfigurator configurator : configurators) {
             configurator.configure(obj);
         }

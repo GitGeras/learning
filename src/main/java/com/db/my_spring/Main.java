@@ -7,7 +7,7 @@ public class Main {
     public static void main(String[] args) {
         ObjectFactory objectFactory = ObjectFactory.getInstance();
         IRobot iRobot = objectFactory.createObject(IRobot.class);
-        objectFactory.processAnnotation(iRobot);
+        objectFactory.configure(iRobot);
         iRobot.cleanRoom();
     }
 }
