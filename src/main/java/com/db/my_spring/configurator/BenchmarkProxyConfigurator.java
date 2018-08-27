@@ -1,6 +1,9 @@
 package com.db.my_spring.configurator;
 
+import com.db.my_spring.BenchmarkToggle;
 import com.db.my_spring.annotation.Benchmark;
+import org.reflections.ReflectionUtils;
+import org.springframework.cglib.proxy.Enhancer;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
@@ -9,47 +12,36 @@ import java.lang.reflect.Proxy;
 import java.util.Arrays;
 
 public class BenchmarkProxyConfigurator implements ProxyConfigurator {
-    @Override
-    @SuppressWarnings("unchecked")
-    public <T> T configure(Class<T> type, T t) throws Exception {
-        if (type.isAnnotationPresent(Benchmark.class)) {
-            return (T) Proxy.newProxyInstance(type.getClassLoader(), type.getInterfaces(), new InvocationHandler() {
-                @Override
-                public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-                    Object retVal = wrapWithBenchmark(method, args, t);
-                    return retVal;
-                }
-            });
-        }
+    private BenchmarkToggle benchmarkToggle = new BenchmarkToggle();
 
-        Method[] declaredMethods = t.getClass().getDeclaredMethods();
-        for (Method declaredMethod : declaredMethods) {
-            if (declaredMethod.isAnnotationPresent(Benchmark.class)) {
-                return (T) Proxy.newProxyInstance(type.getClassLoader(), type.getInterfaces(), new InvocationHandler() {
-                    @Override
-                    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-                        Object retVal;
-                        if (method.getName().equals(declaredMethod.getName()) &&
-                                Arrays.equals(method.getParameterTypes(), declaredMethod.getParameterTypes())) {
-                            retVal = wrapWithBenchmark(method, args, t);
-                        } else {
-                            retVal = method.invoke(t, args);
-                        }
-                        return retVal;
-                    }
-                });
+    @Override
+    public <T> T wrapWithProxy(Class<T> type, T t) {
+        boolean methodNeedsBenchmark = ReflectionUtils.getAllMethods(type).stream().anyMatch(method -> method.isAnnotationPresent(Benchmark.class));
+        if (type.isAnnotationPresent(Benchmark.class)||methodNeedsBenchmark) {
+            if (type.getInterfaces().length == 0) {
+                return (T) Enhancer.create(type, (org.springframework.cglib.proxy.InvocationHandler) (o, method, args) -> invoke(t, type, method, args));
+            }
+            else {
+                return (T) Proxy.newProxyInstance(type.getClassLoader(), type.getInterfaces(), (proxy, method, args) -> invoke(t, type, method, args));
             }
         }
         return t;
     }
 
-    private <T> Object wrapWithBenchmark(Method method, Object[] args, T t) throws IllegalAccessException, InvocationTargetException {
-        System.out.println("********** benchmark for method " + method.getName() + " was started ***********");
-        long start = System.nanoTime();
-        Object retVal = method.invoke(t, args);
-        long end = System.nanoTime();
-        System.out.println(end - start);
-        System.out.println("********** benchmark for method " + method.getName() + " was ended ***********");
-        return retVal;
+    private Object invoke(Object t, Class type, Method method, Object[] args) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {
+        Method classMethod = type.getMethod(method.getName(), method.getParameterTypes());
+        if (benchmarkToggle.isEnabled()
+                && (classMethod.isAnnotationPresent(Benchmark.class)
+                || type.isAnnotationPresent(Benchmark.class))) {
+            System.out.println("********** benchmark for method " + method.getName() + " was started ***********");
+            long start = System.nanoTime();
+            Object retVal = method.invoke(t, args);
+            long end = System.nanoTime();
+            System.out.println(end - start);
+            System.out.println("********** benchmark for method " + method.getName() + " was ended ***********");
+            return retVal;
+        } else {
+            return method.invoke(t, args);
+        }
     }
 }

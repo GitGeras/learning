@@ -5,7 +5,7 @@ import com.db.my_spring.annotation.InjectRandomInt;
 
 import javax.annotation.PostConstruct;
 
-//@Benchmark
+@Benchmark
 public class CleanerImpl implements Cleaner {
 
     @InjectRandomInt(min = 3, max = 6)

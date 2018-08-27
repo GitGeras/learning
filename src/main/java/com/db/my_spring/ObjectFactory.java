@@ -56,7 +56,7 @@ public class ObjectFactory {
 
     private <T> T wrapWithProxy(Class<T> type, T t) throws Exception {
         for (ProxyConfigurator configurator : proxyConfigurators) {
-            t = configurator.configure(type, t);
+            t = configurator.wrapWithProxy(type, t);
         }
         return t;
     }
@@ -72,7 +72,7 @@ public class ObjectFactory {
     }
 
     private <T> void configureFields(T t) throws Exception {
-        for (ObjectConfigurator configurator : objectConfigurators) {
+            for (ObjectConfigurator configurator : objectConfigurators) {
             configurator.configure(t);
         }
     }

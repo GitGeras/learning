@@ -1,8 +1,10 @@
 package com.db.my_spring;
 
 
+import com.db.my_spring.annotation.Benchmark;
 import com.db.my_spring.annotation.InjectByType;
 
+//@Benchmark
 public class IRobot {
     @InjectByType
     private Speaker speaker;
