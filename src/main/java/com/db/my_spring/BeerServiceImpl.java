@@ -1,8 +1,10 @@
-package com.db.my_spring.refactor;
+package com.db.my_spring;
 
-/**
- * @author Evgeny Borisov
- */
+import com.db.my_spring.annotation.Benchmark;
+
+import javax.annotation.PostConstruct;
+
+@Benchmark
 public class BeerServiceImpl implements BeerService {
     @Override
     public void drinkBeer() {
@@ -10,8 +12,13 @@ public class BeerServiceImpl implements BeerService {
     }
 
     @Override
-    @Benchmark
+//    @Benchmark
     public void goToToilet() {
         System.out.println("pssssssssss");
+    }
+
+    @PostConstruct
+    private void init(){
+        System.out.println("init");
     }
 }

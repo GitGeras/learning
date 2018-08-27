@@ -1,102 +1,96 @@
 package com.db.my_spring;
 
-import com.db.my_spring.annotation.Benchmark;
 import com.db.my_spring.configurator.ObjectConfigurator;
+import com.db.my_spring.configurator.ProxyConfigurator;
 import lombok.SneakyThrows;
 import org.reflections.ReflectionUtils;
 import org.reflections.Reflections;
 
 import javax.annotation.PostConstruct;
 import java.lang.reflect.*;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 public class ObjectFactory {
     private static ObjectFactory ourInstance = new ObjectFactory();
-    private ConfigurationUtil configUtil;
+    private ConfigurationUtil config = new ConfigurationUtilImpl();
     private Reflections scanner = new Reflections("com.db.my_spring");
-    private Set<ObjectConfigurator> configurators = new HashSet<>();
-
-    @SneakyThrows
-    private ObjectFactory() {
-        Set<Class<? extends ObjectConfigurator>> objectConfiguratorClasses = scanner.getSubTypesOf(ObjectConfigurator.class);
-        for (Class<? extends ObjectConfigurator> objectConfiguratorClass : objectConfiguratorClasses) {
-            if (!Modifier.isAbstract(objectConfiguratorClass.getModifiers())) {
-                configurators.add(objectConfiguratorClass.newInstance());
-            }
-        }
-    }
+    private Set<ObjectConfigurator> objectConfigurators = new HashSet<>();
+    private Set<ProxyConfigurator> proxyConfigurators = new HashSet<>();
 
     public static ObjectFactory getInstance() {
         return ourInstance;
     }
 
     @SneakyThrows
-    @SuppressWarnings("unchecked")
-    public <T>  T createObjectWithoutAnnotation(Class<T> type) {
-        T newInstance = createImpl(type);
-
-        return newInstance;
+    private ObjectFactory() {
+        Set<Class<? extends ObjectConfigurator>> fieldConfiguratorClasses = scanner.getSubTypesOf(ObjectConfigurator.class);
+        for (Class<? extends ObjectConfigurator> clazz : fieldConfiguratorClasses) {
+            if (!Modifier.isAbstract(clazz.getModifiers())) {
+                objectConfigurators.add(clazz.newInstance());
+            }
+        }
+        Set<Class<? extends ProxyConfigurator>> methodConfiguratorClasses = scanner.getSubTypesOf(ProxyConfigurator.class);
+        for (Class<? extends ProxyConfigurator> clazz : methodConfiguratorClasses) {
+            if (!Modifier.isAbstract(clazz.getModifiers())) {
+                proxyConfigurators.add(clazz.newInstance());
+            }
+        }
     }
 
+
     @SneakyThrows
-    @SuppressWarnings("unchecked")
-    public <T>  T createObject(Class<T> type) {
-        T t = createImpl(type);
-        configure(t);
+    public <T> T createObject(Class<T> type){
+        type = resolveImpl(type);
 
-        invokeInitMethod(type, t);
+        T t = type.newInstance();
 
-        if (type.isAnnotationPresent(Benchmark.class)) {
-            return (T) Proxy.newProxyInstance(type.getClassLoader(), type.getInterfaces(), new InvocationHandler() {
-                @Override
-                public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-                    System.out.println("*** benchmarke for method " + method.getName() + " was started");
-                    long start = System.nanoTime();
-                    Object retVal = method.invoke(t, args);
-                    long end = System.nanoTime();
-                    System.out.println("*** benchmarke for method " + method.getName() + " was ended");
-                    return retVal;
-                }
-            });
+        configureFields(t);
+
+        invokeInitMethods(type, t);
+
+        t = wrapWithProxy(type, t);
+
+        return t;
+
+    }
+
+    private <T> T wrapWithProxy(Class<T> type, T t) throws Exception {
+        for (ProxyConfigurator configurator : proxyConfigurators) {
+            t = configurator.configure(type, t);
         }
-
         return t;
     }
 
-    private <T> void invokeInitMethod(Class<T> type, T newInstance) throws IllegalAccessException, InvocationTargetException {
+    private <T> void invokeInitMethods(Class<T> type, T t) throws IllegalAccessException, InvocationTargetException {
         Set<Method> methods = ReflectionUtils.getAllMethods(type);
         for (Method method : methods) {
             if (method.isAnnotationPresent(PostConstruct.class)) {
                 method.setAccessible(true);
-                method.invoke(newInstance);
+                method.invoke(t);
             }
         }
     }
 
-    private <T> T createImpl(Class<T> type) throws InstantiationException, IllegalAccessException {
-        T newInstance;
-        Class<? extends T> implClass;
+    private <T> void configureFields(T t) throws Exception {
+        for (ObjectConfigurator configurator : objectConfigurators) {
+            configurator.configure(t);
+        }
+    }
+
+    private <T> Class<T> resolveImpl(Class<T> type) {
         if (type.isInterface()) {
-            configUtil = new ConfigurationUtilImpl();
-            implClass = configUtil.getImplClass(type);
+            Class<T> implClass = config.getImplClass(type);
             if (implClass == null) {
                 Set<Class<? extends T>> classes = scanner.getSubTypesOf(type);
                 if (classes.size() != 1) {
-                    throw new IllegalStateException(type + "has 0 or more than 1 impl, please update your config");
+                    throw new IllegalStateException(type + "has 0 or more than one impl, please update your config");
                 }
-                implClass = classes.iterator().next();
+                implClass = (Class<T>) classes.iterator().next();
             }
-            newInstance = implClass.newInstance();
-        } else {
-            newInstance = type.newInstance();
+            type = implClass;
         }
-        return newInstance;
+        return type;
     }
 
-    public <T> void configure(T obj) throws IllegalAccessException, InvocationTargetException {
-        for (ObjectConfigurator configurator : configurators) {
-            configurator.configure(obj);
-        }
-    }
+
 }

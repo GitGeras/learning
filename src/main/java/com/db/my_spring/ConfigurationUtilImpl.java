@@ -13,7 +13,7 @@ public class ConfigurationUtilImpl implements ConfigurationUtil {
 
     @Override
     @SuppressWarnings("unchecked")
-    public <T> Class<? extends T> getImplClass(Class<T> name) {
+    public <T> Class<T> getImplClass(Class<T> name) {
         return config.get(name);
     }
 }

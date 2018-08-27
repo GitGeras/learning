@@ -1,4 +1,6 @@
-package com.db.my_spring.refactor;
+package com.db.my_spring.configurator;
+
+import com.db.my_spring.annotation.Benchmark;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
