@@ -1,6 +1,7 @@
 package com.db.never_use_switch;
 
 import com.db.never_use_switch.mail_handlers.MailCode;
+import com.db.never_use_switch.mail_handlers.MailCodes;
 import com.db.never_use_switch.mail_handlers.MailHandler;
 import lombok.SneakyThrows;
 import org.reflections.Reflections;
@@ -55,20 +56,34 @@ public class MailSender {
                 MailHandler mailHandler = generatorClass.newInstance();
                 MailCode annotation = generatorClass.getAnnotation(MailCode.class);
                 if (annotation == null) {
-                    throw new IllegalStateException("each class which impl "
-                            + MailHandler.class.getSimpleName()
-                            + " must be marked with annotation "
-                            + MailCode.class);
+                    MailCodes annotations = generatorClass.getAnnotation(MailCodes.class);
+                    if (annotations != null) {
+                        for (MailCode mailCode : annotations.value()) {
+                            putToHandlers(mailHandler, mailCode.value());
+                        }
+                    }
+                    else {
+                        throw new IllegalStateException("each class which impl "
+                                + MailHandler.class.getSimpleName()
+                                + " must be marked with annotation "
+                                + MailCode.class);
+                    }
                 }
-                int mailCode = annotation.value();
-                if (handlers.containsKey(mailCode)) {
-                    throw new Exception("Already in use");
+                else{
+                    int mailCode = annotation.value();
+                    putToHandlers(mailHandler, mailCode);
                 }
-                handlers.put(mailCode, mailHandler);
             }
         }
         /*handlers = reflections.getSubTypesOf(MailHandler.class).stream()
                 .collect(Collectors.groupingBy(clazz -> clazz.getAnnotation(MailCode.class).value()));*/
+    }
+
+    private void putToHandlers(MailHandler mailHandler, int mailCode) throws Exception {
+        if (handlers.containsKey(mailCode)) {
+            throw new Exception("Already in use");
+        }
+        handlers.put(mailCode, mailHandler);
     }
 
     private void send(MailInfo mailInfo) {

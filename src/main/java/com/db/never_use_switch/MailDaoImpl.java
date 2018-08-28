@@ -11,7 +11,7 @@ public class MailDaoImpl implements MailDao {
         return MailInfo.builder()
                 .clientName(dataFactory.getName())
                 .clientMail(dataFactory.getEmailAddress())
-                .mailCode(dataFactory.getNumberBetween(1,3))
+                .mailCode(dataFactory.getNumberBetween(1,4))
                 .build();
     }
 }
