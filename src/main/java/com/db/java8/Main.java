@@ -4,6 +4,7 @@ import lombok.SneakyThrows;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public class Main {
@@ -22,24 +23,13 @@ public class Main {
 //                .peek(System.out::println)
 //                        .count());
 
-        String str = joinNamesToString(Arrays.asList(
-                new Employee("Jack", 500),
-                new Employee("Andrew", 100),
-                new Employee("John", 300),
-                new Employee("Alice", 400),
-                new Employee("Sam", 600),
-                new Employee("Bred", 800)));
-        System.out.println(str);
-    }
-
-    private static int calculateSalary(List<Employee> employees) {
-        return employees.stream()
-                .mapToInt(Employee::getSalary)
-                .sum();
-    }
-    private static String joinNamesToString(List<Employee> employees) {
-        return employees.stream()
-                .map(Employee::getName)
-                .collect(Collectors.joining(","));
+        Map<Seniority, List<Employee>> seniorityListMap = EmployeeUtils.categorizeBySalary(Arrays.asList(
+                new Employee("Jack", 5000),
+                new Employee("Andrew", 1000),
+                new Employee("John", 3000),
+                new Employee("Alice", 4000),
+                new Employee("Sam", 6000),
+                new Employee("Bred", 8000)));
+        System.out.println(seniorityListMap);
     }
 }

@@ -5,21 +5,25 @@ import lombok.SneakyThrows;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import static java.util.Comparator.reverseOrder;
+import static java.util.Map.Entry.comparingByValue;
 
 public class SherlockParser {
     @SneakyThrows
     public static void main(String[] args) {
         BufferedReader br = new BufferedReader(new FileReader("test"));
         Map<String, Long> map = br.lines()
-                .flatMap(s -> Arrays.stream(s.split("\\W+")))
                 .map(String::toLowerCase)
+                .flatMap(s -> Arrays.stream(s.split("\\W+")))
                 .collect(Collectors.groupingBy(t -> t, Collectors.counting()));
 
         List<Map.Entry<String, Long>> first10 = map.entrySet().stream()
-                .sorted((o1, o2) -> Long.compare(o2.getValue(), o1.getValue()))
+                .sorted(comparingByValue(reverseOrder()))
                 .limit(10)
                 .collect(Collectors.toList());
 
