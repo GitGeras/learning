@@ -1,7 +1,6 @@
 package com.db.never_use_switch;
 
 import com.db.never_use_switch.mail_handlers.MailCode;
-import com.db.never_use_switch.mail_handlers.MailCodes;
 import com.db.never_use_switch.mail_handlers.MailHandler;
 import lombok.SneakyThrows;
 import org.reflections.Reflections;
@@ -29,14 +28,11 @@ public class MailSender {
     }
 
     @SneakyThrows
-    public void sendMail() {
+     public void sendMail() {
         MailInfo mailInfo = mailDao.getMailInfo();
         int mailCode = mailInfo.getMailCode();
-        MailHandler handler = handlers.getOrDefault(mailCode, new MailHandler() {
-            @Override
-            public void accept(MailInfo mailInfo) {
-                throw new UnsupportedOperationException(mailCode + " is not supported yet");
-            }
+        MailHandler handler = handlers.getOrDefault(mailCode, mailInfo1 -> {
+            throw new UnsupportedOperationException(mailCode + " is not supported yet");
         });
 
         /*MailHandler handler = handlers.get(mailCode);
@@ -54,30 +50,23 @@ public class MailSender {
         for (Class<? extends MailHandler> generatorClass : classes) {
             if (!Modifier.isAbstract(generatorClass.getModifiers())) {
                 MailHandler mailHandler = generatorClass.newInstance();
-                MailCode annotation = generatorClass.getAnnotation(MailCode.class);
-                if (annotation == null) {
-                    MailCodes annotations = generatorClass.getAnnotation(MailCodes.class);
-                    if (annotations != null) {
-                        for (MailCode mailCode : annotations.value()) {
-                            putToHandlers(mailHandler, mailCode.value());
-                        }
+                MailCode[] annotations = generatorClass.getAnnotationsByType(MailCode.class);
+                if (annotations.length != 0)
+                    for (MailCode mailCode : annotations) {
+                        putToHandlers(mailHandler, mailCode.value());
                     }
-                    else {
-                        throw new IllegalStateException("each class which impl "
-                                + MailHandler.class.getSimpleName()
-                                + " must be marked with annotation "
-                                + MailCode.class);
-                    }
-                }
-                else{
-                    int mailCode = annotation.value();
-                    putToHandlers(mailHandler, mailCode);
-                }
+
+            } else {
+                throw new IllegalStateException("each class which impl "
+                        + MailHandler.class.getSimpleName()
+                        + " must be marked with annotation "
+                        + MailCode.class);
             }
         }
+    }
         /*handlers = reflections.getSubTypesOf(MailHandler.class).stream()
                 .collect(Collectors.groupingBy(clazz -> clazz.getAnnotation(MailCode.class).value()));*/
-    }
+
 
     private void putToHandlers(MailHandler mailHandler, int mailCode) throws Exception {
         if (handlers.containsKey(mailCode)) {
