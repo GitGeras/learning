@@ -1,51 +1,61 @@
 package com.db.never_use_switch;
 
-import com.db.never_use_switch.mail_handlers.MailCode;
 import com.db.never_use_switch.mail_handlers.MailHandler;
 import lombok.SneakyThrows;
-import org.reflections.Reflections;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
 
-import java.lang.reflect.Modifier;
 import java.util.HashMap;
-import java.util.Set;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
+@Service
 public class MailSender {
-    private static final HashMap<Integer, MailHandler> handlers = new HashMap<>();
+
+    private Map<Integer, MailHandler> handlers = new HashMap<>();
+    @Autowired
     public MailDao mailDao;
 
-/*
-    private static final HashMap<Integer, Class<? extends Consumer<MailInfo>>> instances = new HashMap<>();
 
-    static {
-        instances.put(1, FirstMailHandler.class);
-        instances.put(2, SecondMailHandler.class);
-
-    }*/
-
-    public MailSender() {
-        mailDao = new MailDaoImpl();
-        init();
-    }
+    @Autowired
+    private void fillHandlers(List<MailHandler> handlerList){
+        for (MailHandler mailHandler : handlerList) {
+            for (int mailCode : mailHandler.myCodes()) {
+                if (handlers.get(mailCode) != null) {
+                    throw new UnsupportedOperationException("mailHandler for mailCode " + mailCode + " should be only one");
+                }
+                handlers.put(mailCode, mailHandler);
+            }
+        }
+    };
 
     @SneakyThrows
+    @Scheduled(fixedDelay = 1000)
      public void sendMail() {
         MailInfo mailInfo = mailDao.getMailInfo();
         int mailCode = mailInfo.getMailCode();
-        MailHandler handler = handlers.getOrDefault(mailCode, mailInfo1 -> {
-            throw new UnsupportedOperationException(mailCode + " is not supported yet");
+        MailHandler handler = handlers.getOrDefault(mailCode, new MailHandler() {
+            @Override
+            public void accept(MailInfo mailInfo) {
+                throw new UnsupportedOperationException(mailCode + " is not supported yet");
+            }
+
+            @Override
+            public int[] myCodes() {
+                return new int[0];
+            }
         });
 
-        /*MailHandler handler = handlers.get(mailCode);
-        if (handler == null) {
-            throw new UnsupportedOperationException(mailCode + " is not supported yet");
-        }*/
         handler.accept(mailInfo);
         send(mailInfo);
     }
 
-    @SneakyThrows
+    /*@SneakyThrows
+    @PostConstruct
     private void init() {
-        Reflections reflections = new Reflections("com.db.never_use_switch.mail_handlers");
+        handlerList.
         Set<Class<? extends MailHandler>> classes = reflections.getSubTypesOf(MailHandler.class);
         for (Class<? extends MailHandler> generatorClass : classes) {
             if (!Modifier.isAbstract(generatorClass.getModifiers())) {
@@ -63,17 +73,14 @@ public class MailSender {
                         + MailCode.class);
             }
         }
-    }
-        /*handlers = reflections.getSubTypesOf(MailHandler.class).stream()
-                .collect(Collectors.groupingBy(clazz -> clazz.getAnnotation(MailCode.class).value()));*/
+    }*/
 
-
-    private void putToHandlers(MailHandler mailHandler, int mailCode) throws Exception {
+    /*private void putToHandlers(MailHandler mailHandler, int mailCode) throws Exception {
         if (handlers.containsKey(mailCode)) {
             throw new Exception("Already in use");
         }
         handlers.put(mailCode, mailHandler);
-    }
+    }*/
 
     private void send(MailInfo mailInfo) {
         System.out.println("sending to " + mailInfo.getClientMail());

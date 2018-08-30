@@ -4,4 +4,5 @@ import com.db.never_use_switch.MailInfo;
 
 public interface MailHandler {
     void accept(MailInfo mailInfo);
+    int[] myCodes();
 }
